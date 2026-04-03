@@ -26,6 +26,17 @@ class UserListResponse(BaseModel):
 
 
 class CreateUserRequest(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "analyst@example.com",
+                "password": "Analyst@99",
+                "full_name": "Alice Analyst",
+                "role": "analyst",
+            }
+        }
+    }
+
     email: str = Field(..., description="User email address")
     password: str = Field(
         ...,

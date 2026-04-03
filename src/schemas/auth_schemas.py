@@ -7,6 +7,12 @@ from constants import ValidationConstants
 
 
 class LoginRequest(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "example": {"email": "admin@example.com", "password": "Admin@12345"}
+        }
+    }
+
     email: str = Field(..., description="User email address")
     password: str = Field(..., description="User password")
 
@@ -26,6 +32,16 @@ class LoginRequest(BaseModel):
 
 
 class RegisterRequest(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "jane@example.com",
+                "password": "Secret@99",
+                "full_name": "Jane Smith",
+            }
+        }
+    }
+
     email: str = Field(..., description="User email address")
     password: str = Field(
         ...,

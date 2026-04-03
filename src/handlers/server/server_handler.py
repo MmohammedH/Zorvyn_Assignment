@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.openapi.utils import get_openapi
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -16,6 +17,48 @@ from middleware.rate_limiter import limiter
 from middleware.request_logging import RequestLoggingMiddleware
 
 logger = get_logger(__name__)
+
+_API_DESCRIPTION = """
+## Finance Dashboard API
+
+A RESTful backend for managing personal or organisational financial records,
+with role-based access control, dashboard analytics, and JWT authentication.
+
+### Authentication
+1. Call **POST /api/v1/auth/login** with your credentials.
+2. Copy the `access_token` from the response.
+3. Click **Authorize** (top-right) and paste the token — all protected endpoints will include it automatically.
+
+### Roles
+| Role | Permissions |
+|------|-------------|
+| **viewer** | Read records, view summary & recent activity |
+| **analyst** | Viewer + category breakdown & trend analytics |
+| **admin** | Full access — manage users and records |
+
+### Default admin credentials (seeded on first start)
+- **Email:** `admin@example.com`
+- **Password:** `Admin@12345`
+"""
+
+_TAGS_METADATA = [
+    {
+        "name": "Authentication",
+        "description": "Register a new account or log in to receive a JWT access token.",
+    },
+    {
+        "name": "Users",
+        "description": "User management — create, read, update, and deactivate users. Most endpoints require the **admin** role.",
+    },
+    {
+        "name": "Financial Records",
+        "description": "Create and manage income/expense records with filtering and pagination.",
+    },
+    {
+        "name": "Dashboard",
+        "description": "Aggregated analytics: totals, category breakdowns, monthly trends, and recent activity.",
+    },
+]
 
 
 @asynccontextmanager
@@ -73,10 +116,10 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="Finance Dashboard Backend API",
-        docs_url="/docs" if settings.is_dev else None,
-        redoc_url="/redoc" if settings.is_dev else None,
-        openapi_url="/openapi.json" if settings.is_dev else None,
+        description=_API_DESCRIPTION,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
         lifespan=lifespan,
         debug=settings.debug,
     )
@@ -87,8 +130,51 @@ def create_app() -> FastAPI:
     _setup_middleware(app)
     setup_error_handlers(app)
     _setup_routes(app)
+    _configure_openapi(app, settings)
 
     return app
+
+
+def _configure_openapi(app: FastAPI, settings) -> None:
+    def custom_openapi() -> dict:
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        schema = get_openapi(
+            title=settings.app_name,
+            version=settings.app_version,
+            description=_API_DESCRIPTION,
+            routes=app.routes,
+            tags=_TAGS_METADATA,
+        )
+
+        schema.setdefault("components", {})
+        schema["components"]["securitySchemes"] = {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Paste the `access_token` returned by /api/v1/auth/login",
+            }
+        }
+
+        for path_item in schema.get("paths", {}).values():
+            for method, operation in path_item.items():
+                if method == "parameters" or not isinstance(operation, dict):
+                    continue
+                if "Authentication" not in operation.get("tags", []):
+                    operation.setdefault("security", [{"BearerAuth": []}])
+                operation.setdefault("responses", {}).update(
+                    {
+                        "401": {"description": "Missing or invalid token"},
+                        "422": {"description": "Validation error"},
+                    }
+                )
+
+        app.openapi_schema = schema
+        return schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]
 
 
 def _setup_middleware(app: FastAPI) -> None:

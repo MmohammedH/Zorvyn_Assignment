@@ -31,6 +31,18 @@ class FinancialRecordListResponse(BaseModel):
 
 
 class CreateFinancialRecordRequest(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "amount": 2500.00,
+                "type": "income",
+                "category": "salary",
+                "record_date": "2026-04-01",
+                "notes": "Monthly salary",
+            }
+        }
+    }
+
     amount: float = Field(..., gt=0, description="Transaction amount (must be positive)")
     type: RecordType = Field(..., description="income or expense")
     category: RecordCategory = Field(..., description="Record category")

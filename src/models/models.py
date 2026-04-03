@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, Numeric, String, func
+from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from clients.db.connection import Base
@@ -11,7 +11,7 @@ from enums.enums import RecordCategory, RecordType, UserRole
 class User(Base):
     __tablename__ = "user"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(
         String(DatabaseConstants.USER_EMAIL_MAX_LENGTH),
         unique=True,
@@ -54,7 +54,7 @@ class User(Base):
 class FinancialRecord(Base):
     __tablename__ = "financial_record"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     created_by_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("user.id", ondelete="RESTRICT"),
